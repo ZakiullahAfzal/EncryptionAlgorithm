@@ -1,74 +1,53 @@
 public class Encryption {
 
-    private static String encrypt(double valueB, double valueF){
-        if (valueF == 0 || valueB == valueF){
-            if(Math.sqrt(valueB) == (int)Math.sqrt(valueB)){
-                return (Math.sqrt(valueB) * Math.PI) + "-0";
-            }
-            return ((Math.sqrt(valueB)+0.001) * Math.PI) + "-0";
-        }
-        double temp = (Math.sqrt(valueB) * Math.PI);
-        if (Math.pow(Math.sqrt(temp/Math.PI), 2) != valueB){
-            valueB = (Math.sqrt(valueB) * Math.PI)+0.001;
-        }else{
-            valueB = (Math.sqrt(valueB) * Math.PI);
-        }
-        temp = (Math.sqrt(valueF) * Math.PI);
-        if (Math.pow(Math.sqrt(temp/Math.PI), 2) != valueF){
-            valueF = (Math.sqrt(valueF) * Math.PI)+0.001;
-        }else {
-            valueF = (Math.sqrt(valueF) * Math.PI);
+    private static final double PI = Math.PI;
+    private static final double EPSILON = 0.001;
+
+    private static String encrypt(double valueB, double valueF) {
+        if (valueF == 0 || valueB == valueF) {
+            double sqrtB = Math.sqrt(valueB);
+            double encryptedValue = (sqrtB == (int) sqrtB) ? sqrtB * PI : (sqrtB + EPSILON) * PI;
+            return encryptedValue + "-0";
         }
 
-        double med = valueB - valueF;
-        if (med < 0){
-            med *= -1;
-        }
-        return (valueB + valueF)+"-"+med;
+        double encryptedB = calculateEncryptedValue(valueB);
+        double encryptedF = calculateEncryptedValue(valueF);
+
+        double med = Math.abs(encryptedB - encryptedF);
+        return (encryptedB + encryptedF) + "-" + med;
     }
 
-    private static int dCrypt(String value){
-        StringBuilder valueOne = new StringBuilder();
-        StringBuilder valueTow = new StringBuilder();
-        boolean flag = false;
-        for (char index: value.toCharArray()){
-            if (index == '-')
-                flag = !flag;
-            if (flag && index != '-')
-                valueTow.append(index);
-            else if(index != '-'){
-                valueOne.append(index);
-            }
-        }
-        double n = Double.parseDouble(String.valueOf(valueOne));
-        if(valueTow.toString().equals("0")){
-            return (int)(Math.pow((n/Math.PI), 2));
-        }
-        double m = Double.parseDouble(String.valueOf(valueTow));
-        n = (n - m)/2;
-        m = (n + m);
-        m  = (Math.pow((m/Math.PI), 2));
-        n = (Math.pow((n/Math.PI), 2));
-
-        return (int)(n+m);
+    private static double calculateEncryptedValue(double value) {
+        double temp = Math.sqrt(value) * PI;
+        return (Math.pow(Math.sqrt(temp / PI), 2) == value ? temp : temp + EPSILON;
     }
 
-    public static String divider(String value){
-       int state = Integer.parseInt(value);
-       int back = Integer.parseInt(String.valueOf(new StringBuilder(String.valueOf(state)).reverse()));
-       if(state - back == 0 || state - back < 0 || back < 10){
-           if (state % 2 == 0)
-               encrypt(state , 0);
-           return encrypt(state , 0);
-       }
-       return encrypt(back , (state - back));
+    private static int dCrypt(String value) {
+        String[] parts = value.split("-", 2);
+        double n = Double.parseDouble(parts[0]);
+        
+        if (parts[1].equals("0")) {
+            return (int) Math.pow(n / PI, 2);
+        }
+
+        double m = Double.parseDouble(parts[1]);
+        double n1 = (n - m) / 2;
+        double m1 = n1 + m;
+        
+        return (int) (Math.pow(m1 / PI, 2) + (int) Math.pow(n1 / PI, 2);
     }
 
-    public static String login(String value, boolean mode){
-        if(mode){
-            return String.valueOf(dCrypt(value));
-        }else {
-            return divider(value);
+    public static String divider(String value) {
+        int state = Integer.parseInt(value);
+        int back = Integer.parseInt(new StringBuilder(value).reverse().toString());
+        
+        if (state - back <= 0 || back < 10) {
+            return encrypt(state, 0);
         }
+        return encrypt(back, state - back);
+    }
+
+    public static String login(String value, boolean mode) {
+        return mode ? String.valueOf(dCrypt(value)) : divider(value);
     }
 }
