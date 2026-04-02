@@ -7,10 +7,34 @@ import java.util.Scanner;
 public class Encryption {
 
 
+     
+
+     public static String encrypt(String text, int mode) {
+        switch (mode) {
+            case 1: return MathCipher.encrypt(text);
+            case 2: return HexCipher.encrypt(text);
+            case 3: return CompactCipher.encrypt(text);
+            default: throw new IllegalArgumentException("Invalid mode");
+        }
+    }
+
+
+    public static String decrypt(String text, int mode) {
+        switch (mode) {
+            case 1: return MathCipher.decrypt(text);
+            case 2: return HexCipher.decrypt(text);
+            case 3: return CompactCipher.decrypt(text);
+            default: throw new IllegalArgumentException("Invalid mode");
+        }
+    }
+
+
+    
     /**
      *  @program Encryption 
      */
 
+    
 private static class Encryption {
 
     // Custom secret values used in the cipher
