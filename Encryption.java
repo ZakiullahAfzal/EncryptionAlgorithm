@@ -11,6 +11,217 @@ public class Encryption {
      *  @program Encryption 
      */
 
+private static class Encryption {
+
+    // Custom secret values used in the cipher
+    // KEY1 = fixed shift
+    // KEY2 = position-based shift
+    // MASK = XOR mask
+    private static final int KEY1 = 17;
+    private static final int KEY2 = 43;
+    private static final int MASK = 91;
+
+    // Custom alphabet used to convert bytes into readable text
+    // Similar to Base64 alphabet
+    private static final char[] ALPHABET =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toCharArray();
+
+    // Reverse lookup table:
+    // given a character like 'A', 'b', '7', '+', '/'
+    // find its numeric index in ALPHABET
+    private static final int[] REVERSE = new int[128];
+
+    static {
+        // Initialize all values as invalid
+        for (int i = 0; i < REVERSE.length; i++) {
+            REVERSE[i] = -1;
+        }
+
+        // Fill reverse mapping
+        // Example: REVERSE['A'] = 0, REVERSE['B'] = 1, ...
+        for (int i = 0; i < ALPHABET.length; i++) {
+            REVERSE[ALPHABET[i]] = i;
+        }
+    }
+
+    // Encrypt one character code using:
+    // 1. fixed shift
+    // 2. position-based shift
+    // 3. XOR mask
+    private static int encryptChar(int value, int position) {
+        return (value + KEY1 + (position * KEY2)) ^ MASK;
+    }
+
+    // Reverse the encryption process
+    private static int decryptChar(int value, int position) {
+        return (value ^ MASK) - KEY1 - (position * KEY2);
+    }
+
+    // Encrypt the whole text
+    public static String encryptText(String text) {
+        // If text is null or empty, return empty string
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+
+        // Each encrypted character is stored in 2 bytes
+        // So total byte array length = text length * 2
+        byte[] bytes = new byte[text.length() * 2];
+
+        for (int i = 0; i < text.length(); i++) {
+            int encrypted = encryptChar(text.charAt(i), i);
+
+            // Split encrypted integer into 2 bytes
+            // High byte goes first
+            bytes[i * 2] = (byte) ((encrypted >> 8) & 0xFF);
+
+            // Low byte goes second
+            bytes[i * 2 + 1] = (byte) (encrypted & 0xFF);
+        }
+
+        // Convert byte array into readable encoded text
+        return encodeCustomBase64(bytes);
+    }
+
+    // Decrypt the encoded text back to the original plain text
+    public static String decryptText(String encodedText) {
+        // Empty input gives empty result
+        if (encodedText == null || encodedText.isEmpty()) {
+            return "";
+        }
+
+        // Convert encoded text back into raw bytes
+        byte[] bytes = decodeCustomBase64(encodedText);
+
+        // Each encrypted character must occupy 2 bytes
+        if (bytes.length % 2 != 0) {
+            throw new IllegalArgumentException("Invalid encrypted data length.");
+        }
+
+        // Result will contain one character for every 2 bytes
+        StringBuilder result = new StringBuilder(bytes.length / 2);
+
+        for (int i = 0; i < bytes.length; i += 2) {
+            // Rebuild the encrypted integer from 2 bytes
+            int encrypted = ((bytes[i] & 0xFF) << 8) | (bytes[i + 1] & 0xFF);
+
+            // Original character position
+            int position = i / 2;
+
+            // Decrypt integer back to original character code
+            int decrypted = decryptChar(encrypted, position);
+
+            // Convert integer back to char
+            result.append((char) decrypted);
+        }
+
+        return result.toString();
+    }
+
+    // Encode raw bytes into readable text using custom alphabet
+    private static String encodeCustomBase64(byte[] data) {
+        // Rough size estimate for efficiency
+        StringBuilder result = new StringBuilder((data.length * 4 + 2) / 3);
+
+        int i = 0;
+        while (i < data.length) {
+            // Read up to 3 bytes
+            int b1 = data[i++] & 0xFF;
+            int b2 = (i < data.length) ? data[i++] & 0xFF : 0;
+            int b3 = (i < data.length) ? data[i++] & 0xFF : 0;
+
+            // Merge them into one 24-bit integer
+            int combined = (b1 << 16) | (b2 << 8) | b3;
+
+            // Split 24 bits into four 6-bit parts
+            result.append(ALPHABET[(combined >> 18) & 0x3F]);
+            result.append(ALPHABET[(combined >> 12) & 0x3F]);
+
+            // Add third encoded char if enough data exists
+            if (i - 1 < data.length) {
+                result.append(ALPHABET[(combined >> 6) & 0x3F]);
+            }
+
+            // Add fourth encoded char if enough data exists
+            if (i < data.length + 1) {
+                result.append(ALPHABET[combined & 0x3F]);
+            }
+        }
+
+        // Remove extra characters caused by missing bytes at the end
+        int mod = data.length % 3;
+        if (mod == 1) {
+            result.setLength(result.length() - 2);
+        } else if (mod == 2) {
+            result.setLength(result.length() - 1);
+        }
+
+        return result.toString();
+    }
+
+    // Decode encoded text back into raw bytes
+    private static byte[] decodeCustomBase64(String text) {
+        int len = text.length();
+
+        if (len == 0) {
+            return new byte[0];
+        }
+
+        // Calculate output byte array size based on encoded text length
+        int remainder = len % 4;
+        int outputLength = (len / 4) * 3;
+
+        if (remainder == 2) {
+            outputLength += 1;
+        } else if (remainder == 3) {
+            outputLength += 2;
+        } else if (remainder != 0) {
+            throw new IllegalArgumentException("Invalid encoded text length.");
+        }
+
+        byte[] output = new byte[outputLength];
+
+        int in = 0;
+        int out = 0;
+
+        while (in < len) {
+            // Read up to 4 encoded characters
+            int c1 = REVERSE[text.charAt(in++)];
+            int c2 = REVERSE[text.charAt(in++)];
+            int c3 = (in < len) ? REVERSE[text.charAt(in++)] : 0;
+            int c4 = (in < len) ? REVERSE[text.charAt(in++)] : 0;
+
+            // Validate characters
+            if (c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0) {
+                throw new IllegalArgumentException("Invalid character in encoded text.");
+            }
+
+            // Merge four 6-bit values into one 24-bit integer
+            int combined = (c1 << 18) | (c2 << 12) | (c3 << 6) | c4;
+
+            // Split back into original bytes
+            if (out < outputLength) {
+                output[out++] = (byte) ((combined >> 16) & 0xFF);
+            }
+            if (out < outputLength) {
+                output[out++] = (byte) ((combined >> 8) & 0xFF);
+            }
+            if (out < outputLength) {
+                output[out++] = (byte) (combined & 0xFF);
+            }
+        }
+
+        return output;
+    }
+
+    // Same style as your old code:
+    // mode = false -> encrypt
+    // mode = true  -> decrypt
+    public static String login(String value, boolean mode) {
+        return mode ? decryptText(value) : encryptText(value);
+    }
+}
+
 
     
 
@@ -18,7 +229,7 @@ public class Encryption {
 
     //============================================================================================
 
-class EncryptionBsedOnKeys{
+private static class EncryptionBsedOnKeys{
 
     // Three secret values used in the custom cipher
     // KEY1 = fixed shift
